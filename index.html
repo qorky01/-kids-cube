@@ -168,6 +168,32 @@
   .msg.bad { background: #ffe3e3; color: #a12828; }
   .msg.info { background: #e6f4ea; color: #1b6b3f; }
 
+  /* 원리 배우기 */
+  .learn {
+    background: var(--card); border-radius: 24px; border: 3px solid var(--line); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .learn-dots { display: flex; justify-content: center; gap: 6px; }
+  .learn-dots i { width: 10px; height: 10px; border-radius: 99px; background: #f0dfc4; }
+  .learn-dots i.now { background: var(--accent); width: 26px; }
+  .learn h2 { margin: 0; font-weight: normal; font-size: 25px; line-height: 1.3; text-wrap: balance; }
+  .learn-body { font-size: 19px; line-height: 1.6; }
+  .learn-body p { margin: 0 0 8px; }
+  .learn-body p:last-child { margin-bottom: 0; }
+  .learn-body b { color: var(--accent-dark); font-weight: normal; }
+  .learn-body ul { margin: 0 0 8px; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .learn-body .bignum { font-size: 22px; color: var(--blue); word-break: break-all; }
+  .learn-demo { display: flex; flex-wrap: wrap; gap: 8px; }
+  .learn-demo:empty { display: none; }
+  .learn-demo button {
+    flex: 1 1 auto; border-radius: 14px; padding: 10px 12px; font-size: 18px; background: #eef6ff;
+    border: 2px solid #c7dcff; color: #2c4a7a;
+  }
+  .learn-demo button.on { background: var(--blue); border-color: #2a5fd6; color: #fff; }
+  .learn-demo button:active { transform: translateY(2px); }
+  .learn-note { background: #fff3e0; border-radius: 14px; padding: 10px 12px; font-size: 18px; line-height: 1.45; }
+  .learn-note:empty { display: none; }
+
   /* 기다리기 / 축하 */
   .overlay {
     position: fixed; inset: 0; background: rgba(255, 246, 229, .85); display: none; z-index: 20;
@@ -216,6 +242,10 @@
       <div class="emo">🎮</div>
       <div><b>화면 큐브 놀이</b><span>화면 속 큐브를 섞고 돌려 보고<br />다시 맞추는 걸 구경해요</span></div>
     </button>
+    <button class="menu-card" id="goLearn">
+      <div class="emo">🧠</div>
+      <div><b>큐브의 비밀</b><span>큐브는 어떻게 맞출 수 있을까?<br />직접 눌러 보며 원리를 알아봐요</span></div>
+    </button>
   </section>
 
   <!-- 3D 큐브 (여러 화면이 같이 씀) -->
@@ -253,6 +283,21 @@
     <div class="row">
       <button class="btn" id="paintPrev">◀ 앞 면</button>
       <button class="btn primary" id="paintNext">다음 면 ▶</button>
+    </div>
+  </section>
+
+  <!-- 원리 배우기 -->
+  <section class="screen" id="scr-learn">
+    <div class="learn">
+      <div class="learn-dots" id="learnDots"></div>
+      <h2 id="learnTitle"></h2>
+      <div class="learn-body" id="learnBody"></div>
+      <div class="learn-demo" id="learnDemo"></div>
+      <div class="learn-note" id="learnNote"></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="learnPrev">◀ 앞으로</button>
+      <button class="btn primary" id="learnNext">다음 ▶</button>
     </div>
   </section>
 
@@ -649,18 +694,18 @@ function talk(move) {
 
 // ───────────── 화면 전환 ─────────────
 const $ = (id) => document.getElementById(id);
-const screens = ['home', 'play', 'paint', 'guide'];
+const screens = ['home', 'play', 'paint', 'guide', 'learn'];
 let current = 'home';
 function show(name) {
   current = name;
   screens.forEach((s) => $('scr-' + s).classList.toggle('on', s === name));
   stage.style.display = name === 'home' ? 'none' : 'block';
   stage.classList.toggle('small', name === 'paint');
-  stage.classList.toggle('mid', name === 'guide');
+  stage.classList.toggle('mid', name === 'guide' || name === 'learn');
   $('homeBtn').style.display = name === 'home' ? 'none' : 'block';
   $('viewReset').style.display = name === 'paint' ? 'none' : 'block';
   $('stageHint').style.display = name === 'paint' ? 'none' : 'block';
-  $('title').textContent = { home: '🧊 큐브 도우미', play: '🎮 큐브 놀이', paint: '🎨 색깔 알려주기', guide: '🧑‍🔧 따라 하기' }[name];
+  $('title').textContent = { home: '🧊 큐브 도우미', play: '🎮 큐브 놀이', paint: '🎨 색깔 알려주기', guide: '🧑‍🔧 따라 하기', learn: '🧠 큐브의 비밀' }[name];
   requestAnimationFrame(resize);
 }
 $('homeBtn').onclick = () => { stopAuto(); queue.length = 0; show('home'); };
@@ -943,6 +988,258 @@ function confetti() {
     else ctx.clearRect(0, 0, cv.width, cv.height);
   })();
 }
+
+// ───────────── 큐브의 비밀 (원리 배우기) ─────────────
+// 스티커 번호 → 어느 면, 몇 번째 칸, 어느 자리
+const STICKER_INFO = [];
+FACES.forEach((f, fi) => {
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+    const [x, y, z] = POS[f](r, c);
+    STICKER_INFO[fi * 9 + r * 3 + c] = { f, i: r * 3 + c, x, y, z };
+  }
+});
+const isCenter = (t) => t.i === 4;
+const isEdge = (t) => [1, 3, 5, 7].includes(t.i);
+const isCorner = (t) => [0, 2, 6, 8].includes(t.i);
+// 조건에 맞는 스티커만 색을 보여주고 나머지는 회색
+const masked = (keep) => [...SOLVED].map((c, idx) => (keep(STICKER_INFO[idx], idx) ? c : 'X')).join('');
+const BELOW_CAM = new THREE.Vector3(5.2, -4.6, 7.4);
+
+function randomMoves(n) {
+  const out = [];
+  let last = '';
+  for (let i = 0; i < n; i++) {
+    let f;
+    do { f = 'URFDLB'[Math.floor(Math.random() * 6)]; } while (f === last);
+    last = f;
+    out.push(f + ['', "'", '2'][Math.floor(Math.random() * 3)]);
+  }
+  return out;
+}
+const simpleSay = (m) => talk(m).text.replace(/<[^>]+>/g, '');
+const note = (html) => { $('learnNote').innerHTML = html; };
+const markOn = (btn) => {
+  $('learnDemo').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === btn));
+};
+
+const LEARN = [
+  {
+    title: '큐브는 조각 26개로 되어 있어요',
+    body: `<p>큐브에 붙은 건 그냥 스티커가 아니에요. <b>작은 조각</b>들이 모여 있는 거예요. 조각은 세 가지예요.</p>
+      <ul>
+        <li>⚪ <b>가운데 조각</b> 6개: 색이 1개</li>
+        <li>🔷 <b>가장자리 조각</b> 12개: 두 면 사이에 있고 색이 2개</li>
+        <li>🔺 <b>모서리 조각</b> 8개: 세 면이 만나는 뾰족한 곳, 색이 3개</li>
+      </ul>
+      <p>6 + 12 + 8 = <b>26개</b>! 아래 버튼을 눌러 하나씩 찾아봐요.</p>`,
+    setup() { setColors(SOLVED); homeView(); },
+    demos: [
+      ['⚪ 가운데', (b) => { setColors(masked(isCenter)); markOn(b); note('가운데 조각은 면마다 딱 1개씩, 모두 6개예요.'); }],
+      ['🔷 가장자리', (b) => { setColors(masked(isEdge)); markOn(b); note('가장자리 조각은 12개. 조각 하나에 색이 2개 붙어 있어요.'); }],
+      ['🔺 모서리', (b) => { setColors(masked(isCorner)); markOn(b); note('모서리 조각은 8개. 조각 하나에 색이 3개 붙어 있어요.'); }],
+      ['🧊 전부', (b) => { setColors(SOLVED); markOn(b); note(''); }],
+    ],
+  },
+  {
+    title: '가운데 조각은 절대 자리를 안 바꿔요',
+    body: `<p>아무리 돌려도 가운데 조각은 제자리에서 <b>빙글 돌기만</b> 해요.</p>
+      <p>그래서 <b>가운데 색이 그 면의 색</b>이에요. 초록 가운데가 있는 면은 다 맞추면 전부 초록이 돼요.</p>
+      <p>마주 보는 짝꿍도 항상 같아요: ${chip('W')}흰색↔${chip('Y')}노랑, ${chip('G')}초록↔${chip('B')}파랑, ${chip('R')}빨강↔${chip('O')}주황</p>`,
+    setup() { setColors(masked(isCenter)); homeView(); },
+    demos: [
+      ['🌀 마구 돌려보기', () => {
+        if (busy) return;
+        randomMoves(12).forEach((m) => doMove(m, 160));
+        note('봐요! 12번이나 돌렸는데 가운데 색은 그대로예요.');
+      }],
+      ['🔄 처음으로', () => { if (!busy) { setColors(masked(isCenter)); note(''); } }],
+    ],
+  },
+  {
+    title: '조각은 색을 데리고 같이 다녀요',
+    body: `<p>${chip('W')}흰색-${chip('R')}빨강 가장자리 조각은 어디로 가든 흰색과 빨강이 <b>꼭 붙어 다녀요</b>. 모서리 조각도 마찬가지예요.</p>
+      <p>그러니까 큐브 맞추기는 스티커를 맞추는 게 아니라 <b>조각 26개를 제 집에 돌려보내는 것</b>이에요.</p>
+      <p>흰-빨강 조각의 집은? 흰 가운데와 빨강 가운데 <b>사이</b>예요!</p>`,
+    setup() { setColors(masked((t, idx) => isCenter(t) || [5, 10, 8, 9, 20].includes(idx))); homeView(); },
+    demos: [
+      ['🌀 돌려보기', () => {
+        if (busy) return;
+        randomMoves(6).forEach((m) => doMove(m, 280));
+        note('조각이 어디로 가도 색끼리는 절대 안 떨어져요. 손가락으로 큐브를 돌려서 찾아봐요!');
+      }],
+      ['🏠 집으로', () => { if (!busy) { LEARN[2].setup(); note(''); } }],
+    ],
+  },
+  {
+    title: '거꾸로 하면 처음으로 돌아가요',
+    body: `<p>양말을 신고 신발을 신었으면, 벗을 때는 <b>신발 먼저</b> 벗고 양말을 벗죠?</p>
+      <p>큐브도 똑같아요. 섞은 순서를 <b>거꾸로, 반대 방향으로</b> 하면 원래대로 돌아와요.</p>
+      <p>하지만 친구가 어떻게 섞었는지 모르면 이 방법은 못 써요. 그래서 다른 비밀이 필요해요 👉</p>`,
+    setup() { setColors(SOLVED); homeView(); learnMix = []; },
+    demos: [
+      ['🎲 3번 섞기', () => {
+        if (busy) return;
+        setColors(SOLVED);
+        learnMix = randomMoves(3);
+        learnMix.forEach((m) => doMove(m, 450));
+        note('섞은 순서:<br />' + learnMix.map((m, i) => `${i + 1}. ${simpleSay(m)}`).join('<br />'));
+      }],
+      ['⏪ 거꾸로 되돌리기', () => {
+        if (busy || !learnMix.length) return;
+        const back = learnMix.slice().reverse().map(invertMove);
+        back.forEach((m) => doMove(m, 450));
+        note('되돌린 순서 (마지막 것부터, 반대로):<br />' + back.map((m, i) => `${i + 1}. ${simpleSay(m)}`).join('<br />'));
+        learnMix = [];
+      }],
+    ],
+  },
+  {
+    title: '마법 주문 (공식)',
+    body: `<p>이 4번 돌리기를 외워 봐요.</p>
+      <ul>
+        <li>① 오른쪽 줄 <b>위로</b> ⬆️</li><li>② 맨 위 줄 <b>왼쪽으로</b> ⬅️</li>
+        <li>③ 오른쪽 줄 <b>아래로</b> ⬇️</li><li>④ 맨 위 줄 <b>오른쪽으로</b> ➡️</li>
+      </ul>
+      <p>이 주문을 <b>6번</b> 하면 신기하게 처음 모양으로 돌아와요! 그 사이에는 <b>몇 조각만</b> 자리를 바꾸고 나머지는 거의 그대로예요.</p>
+      <p>큐브 잘하는 사람들은 이런 주문을 외워서 <b>필요한 조각만 쏙</b> 옮겨요.</p>`,
+    setup() { setColors(SOLVED); homeView(); learnSpell = 0; },
+    demos: [
+      ['✨ 주문 1번', () => {
+        if (busy) return;
+        ['R', 'U', "R'", "U'"].forEach((m) => doMove(m, 330));
+        learnSpell++;
+        spellNote();
+      }],
+      ['🔁 6번 채우기', () => {
+        if (busy) return;
+        const left = (6 - (learnSpell % 6)) % 6 || 6;
+        for (let k = 0; k < left; k++) ['R', 'U', "R'", "U'"].forEach((m) => doMove(m, 150));
+        learnSpell += left;
+        spellNote();
+      }],
+    ],
+  },
+  {
+    title: '사람은 한 층씩 맞춰요',
+    body: `<p>처음 배우는 사람은 큐브를 <b>3층 건물</b>처럼 생각하고 위에서부터 한 층씩 맞춰요. 단계를 눌러 봐요.</p>
+      <p>이미 맞춘 층은 주문을 쓰는 동안 잠깐 흐트러져도 <b>주문이 끝나면 다시 돌아와요</b>. 그게 주문의 비밀이에요!</p>`,
+    setup() { setColors(LAYER_STEPS[0][1]); homeView(); },
+    demos: null, // 아래에서 채움
+  },
+  {
+    title: '섞는 방법은 4300경 가지!',
+    body: `<p>큐브를 섞은 모양은 모두</p>
+      <p class="bignum">43,252,003,274,489,856,000<br />가지</p>
+      <p>1초에 하나씩 본다면 <b>우주 나이의 100배</b>쯤 걸려요.</p>
+      <p>그런데 놀랍게도 <b>어떤 큐브든 20번 안에</b> 맞출 수 있어요. 이걸 <b>“신의 숫자”</b>라고 불러요. 2010년에 컴퓨터 수천 대로 알아냈어요.</p>
+      <p>이 앱의 컴퓨터는 두 단계로 생각해요. ① 먼저 조각들을 “정리하기 쉬운 모양”으로 모으고 ② 그다음 완성해요. 그래서 20번 안팎이면 돼요.</p>`,
+    setup() { setColors(SOLVED); homeView(); },
+    demos: [
+      ['🎲 섞고 컴퓨터에게 풀게 하기', async () => {
+        if (busy || learnThinking) return;
+        setColors(SOLVED);
+        const mix = randomMoves(25);
+        mix.forEach((m) => doMove(m, 70));
+        note('25번 마구 섞는 중…');
+        learnThinking = true;
+        await new Promise((r) => { onIdle = () => { onIdle = null; r(); }; });
+        note('컴퓨터가 생각하는 중… 🤔');
+        try {
+          const sol = await solveColors(readColors());
+          note(`25번 섞은 큐브를 컴퓨터는 <b>${sol.length}번</b>만에 맞춰요! 잘 봐요 👀`);
+          sol.forEach((m) => doMove(m, 280));
+        } catch (e) {
+          note('앗, 컴퓨터가 아직 준비 중이에요. 다시 눌러 볼까요?');
+        }
+        learnThinking = false;
+      }],
+    ],
+  },
+  {
+    title: '절대 못 맞추는 큐브도 있어요',
+    body: `<p>큐브를 뜯었다가 모서리 조각 하나를 <b>비틀어서</b> 다시 끼우면, 아무리 돌려도 <b>절대</b> 못 맞춰요.</p>
+      <p>돌리기는 조각을 정해진 규칙대로만 움직이거든요. 조각을 아무렇게나 끼우면 <b>12번 중 11번</b>은 못 맞추는 큐브가 돼요.</p>
+      <p>그래서 색을 잘못 칠하면 앱이 “틀린 곳이 있어요” 하고 알려주는 거예요. 이제 진짜 큐브를 맞추러 가 볼까요? 🧑‍🔧</p>`,
+    setup() { setColors(SOLVED); homeView(); },
+    demos: [
+      ['🔧 모서리 하나 비틀기', (b) => {
+        if (busy) return;
+        const t = [...SOLVED];
+        [t[8], t[9], t[20]] = [SOLVED[20], SOLVED[8], SOLVED[9]];
+        setColors(t.join(''));
+        markOn(b);
+        note('오른쪽 위 앞 모서리를 비틀었어요. 다른 건 다 맞는데 이 조각 하나만 돌아가 있죠? 이런 큐브는 돌리기만으로는 절대 못 맞춰요.');
+      }],
+      ['🧊 원래대로', (b) => { if (!busy) { setColors(SOLVED); markOn(b); note(''); } }],
+    ],
+  },
+];
+
+// 층별로 맞추는 단계 (흰색이 위)
+const LAYER_STEPS = [
+  ['① 흰색 십자', masked((t) => isCenter(t) || (t.y === 1 && [t.x, t.z].filter((v) => v === 0).length === 1)),
+    '흰 가운데 둘레에 가장자리 조각 4개를 넣어 <b>흰색 십자</b>를 만들어요. 옆면 색도 가운데와 맞춰야 해요.'],
+  ['② 첫 층 완성', masked((t) => isCenter(t) || t.y === 1),
+    '흰색 모서리 조각 4개를 넣으면 <b>윗층</b> 완성! 옆에서 보면 한 줄씩 색이 맞아요.'],
+  ['③ 가운데 층', masked((t) => isCenter(t) || t.y >= 0),
+    '가운데 층의 가장자리 조각 4개를 주문으로 쏙쏙 넣어요. 이제 <b>2층까지</b> 완성!'],
+  ['④ 노란 십자', masked((t) => isCenter(t) || t.y >= 0 || (t.f === 'D' && isEdge(t))),
+    '큐브 아래(노랑)에 <b>노란 십자</b>를 만들어요. 아래쪽에서 보고 있어요.', true],
+  ['⑤ 노란 면', masked((t) => t.y >= 0 || t.f === 'D' || isCenter(t)),
+    '노란 모서리를 돌려서 <b>노란 면</b>을 다 채워요.', true],
+  ['⑥ 완성!', SOLVED, '마지막으로 옆면 조각들 자리를 바꾸면 <b>완성</b>! 🎉'],
+];
+LEARN[5].demos = LAYER_STEPS.map(([label, colors, text, below]) => [label, (b) => {
+  if (busy) return;
+  setColors(colors);
+  controls.enabled = true;
+  moveCamera((below ? BELOW_CAM : HOME_CAM).clone());
+  markOn(b);
+  note(text);
+}]);
+
+let learnPage = 0;
+let learnMix = [];
+let learnSpell = 0;
+let learnThinking = false;
+function spellNote() {
+  const n = learnSpell % 6;
+  note(n === 0
+    ? `주문을 <b>${learnSpell}번</b> 했어요. 짠! 처음 모양으로 돌아왔어요 ✨`
+    : `주문을 <b>${learnSpell}번</b> 했어요. 몇 조각만 바뀌었죠? ${6 - n}번 더 하면 처음으로 돌아와요.`);
+}
+function renderLearn() {
+  const pg = LEARN[learnPage];
+  $('learnDots').innerHTML = LEARN.map((_, i) => `<i class="${i === learnPage ? 'now' : ''}"></i>`).join('');
+  $('learnTitle').textContent = pg.title;
+  $('learnBody').innerHTML = pg.body;
+  $('learnDemo').innerHTML = pg.demos.map(([label], i) => `<button data-d="${i}">${label}</button>`).join('');
+  note('');
+  $('learnPrev').disabled = learnPage === 0;
+  const last = learnPage === LEARN.length - 1;
+  $('learnNext').innerHTML = last ? '🧑‍🔧 내 큐브 맞추러 가기' : '다음 ▶';
+  $('learnNext').className = 'btn ' + (last ? 'good' : 'primary');
+  queue.length = 0;
+  pg.setup();
+  if (learnPage === 5) markOn($('learnDemo').querySelector('button')), note(LAYER_STEPS[0][2]);
+}
+$('learnDemo').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  LEARN[learnPage].demos[+b.dataset.d][1](b);
+};
+function learnGo(i) {
+  if (busy || learnThinking) return;
+  learnPage = i;
+  renderLearn();
+  $('scr-learn').scrollIntoView({ block: 'nearest' });
+}
+$('learnPrev').onclick = () => { if (learnPage > 0) learnGo(learnPage - 1); };
+$('learnNext').onclick = () => {
+  if (learnPage < LEARN.length - 1) learnGo(learnPage + 1);
+  else if (!busy && !learnThinking) $('goSolve').onclick();
+};
+$('goLearn').onclick = () => { learnPage = 0; show('learn'); renderLearn(); };
 
 // 테스트용으로 몇 가지를 밖에서 볼 수 있게
 window.__cube = { readColors, setColors, doMove, checkColors, solveColors, get busy() { return busy; }, get solverReady() { return solverReady; }, SOLVED };

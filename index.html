@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#fff6e5" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>큐브 도우미</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧊</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #fff6e5;
+    --card: #ffffff;
+    --ink: #3a2e2a;
+    --soft: #8a7a70;
+    --line: #f0dfc4;
+    --accent: #ff7a45;
+    --accent-dark: #e65c26;
+    --good: #2bb673;
+    --blue: #3d7bff;
+    --shadow: 0 4px 0 rgba(58, 46, 42, 0.18);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Jua', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    font-size: 18px;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  button { font-family: inherit; color: inherit; cursor: pointer; border: none; }
+  .app { max-width: 720px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding: 12px 16px 24px; }
+
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-height: 52px; }
+  header h1 { font-size: 26px; margin: 0; font-weight: normal; flex: 1; }
+  .home-btn {
+    background: var(--card); border-radius: 16px; padding: 10px 14px; font-size: 18px;
+    box-shadow: var(--shadow); border: 2px solid var(--line);
+  }
+  .home-btn:active { transform: translateY(3px); box-shadow: none; }
+
+  .screen { display: none; flex-direction: column; gap: 12px; flex: 1; }
+  .screen.on { display: flex; }
+
+  /* 첫 화면 */
+  .hero { text-align: center; padding: 8px 0 4px; }
+  .hero .big { font-size: 72px; line-height: 1; }
+  .hero p { margin: 8px 0 0; color: var(--soft); font-size: 20px; }
+  .menu-card {
+    display: flex; align-items: center; gap: 16px; text-align: left;
+    background: var(--card); border-radius: 24px; padding: 20px; border: 3px solid var(--line);
+    box-shadow: 0 6px 0 rgba(58, 46, 42, 0.15);
+  }
+  .menu-card:active { transform: translateY(4px); box-shadow: none; }
+  .menu-card .emo { font-size: 54px; }
+  .menu-card b { display: block; font-size: 26px; font-weight: normal; }
+  .menu-card span { color: var(--soft); font-size: 17px; }
+
+  /* 3D 큐브 */
+  .stage {
+    position: relative; width: 100%; height: 42vh; min-height: 260px; max-height: 460px;
+    background: radial-gradient(circle at 50% 40%, #ffffff 0%, #ffeccc 70%);
+    border-radius: 24px; border: 3px solid var(--line); overflow: hidden; touch-action: none;
+  }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .stage .hint {
+    position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 14px;
+    color: var(--soft); pointer-events: none;
+  }
+  .stage.small { height: 28vh; min-height: 180px; }
+  .stage.mid { height: 36vh; min-height: 220px; }
+  .view-reset {
+    position: absolute; right: 10px; top: 10px; background: #fff; border-radius: 12px; padding: 6px 10px;
+    font-size: 15px; box-shadow: var(--shadow); border: 2px solid var(--line);
+  }
+
+  /* 큰 버튼 */
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .btn {
+    border-radius: 18px; padding: 14px 10px; font-size: 21px; background: var(--card);
+    border: 3px solid var(--line); box-shadow: var(--shadow);
+  }
+  .btn:active:not(:disabled) { transform: translateY(3px); box-shadow: none; }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .row[style] .btn { font-size: var(--f); padding: 12px 4px; white-space: nowrap; }
+  .btn.primary { background: var(--accent); border-color: var(--accent-dark); color: #fff; }
+  .btn.good { background: var(--good); border-color: #1f8f59; color: #fff; }
+  .btn.blue { background: var(--blue); border-color: #2a5fd6; color: #fff; }
+
+  /* 돌리기 버튼판 */
+  .pad { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .pad-group {
+    background: var(--card); border-radius: 18px; border: 2px solid var(--line); padding: 8px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .pad-group .name { text-align: center; font-size: 16px; color: var(--soft); }
+  .pad-group .pair { display: flex; gap: 6px; }
+  .pad-group .pair button {
+    flex: 1; font-size: 26px; padding: 8px 0; border-radius: 14px; background: #fff3e0;
+    border: 2px solid var(--line);
+  }
+  .pad-group .pair button:active { background: #ffd9a8; }
+
+  /* 안내 카드 */
+  .guide {
+    background: var(--card); border-radius: 24px; border: 3px solid var(--line); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .guide .top { display: flex; justify-content: space-between; align-items: center; color: var(--soft); font-size: 16px; }
+  .progress { height: 12px; background: #f5e7d0; border-radius: 99px; overflow: hidden; }
+  .progress i { display: block; height: 100%; width: 0; background: var(--good); border-radius: 99px; transition: width .3s; }
+  .move-say { display: flex; align-items: center; gap: 14px; min-height: 84px; }
+  .move-icon {
+    width: 84px; height: 84px; flex: none; border-radius: 20px; background: #fff3e0;
+    display: flex; align-items: center; justify-content: center; font-size: 46px; position: relative;
+    border: 3px solid var(--line);
+  }
+  .move-icon .times {
+    position: absolute; right: -8px; top: -10px; background: var(--accent); color: #fff; font-size: 18px;
+    border-radius: 99px; padding: 2px 8px;
+  }
+  .move-text { font-size: 24px; line-height: 1.3; }
+  .move-text small { display: block; font-size: 16px; color: var(--soft); }
+  .chip { display: inline-block; width: 18px; height: 18px; border-radius: 5px; vertical-align: -2px; border: 2px solid rgba(0,0,0,.25); }
+  .hold-tip { background: #eef6ff; border-radius: 14px; padding: 8px 12px; font-size: 16px; color: #2c4a7a; }
+
+  /* 색칠하기 */
+  .face-steps { display: flex; justify-content: center; gap: 8px; }
+  .face-steps i {
+    width: 26px; height: 26px; border-radius: 8px; border: 3px solid rgba(0,0,0,.15); opacity: .45;
+  }
+  .face-steps i.now { opacity: 1; transform: scale(1.2); border-color: var(--ink); }
+  .face-steps i.done { opacity: 1; }
+  .say { font-size: 21px; text-align: center; line-height: 1.35; }
+  .say small { display: block; font-size: 16px; color: var(--soft); margin-top: 2px; }
+  .paint-wrap { display: flex; justify-content: center; }
+  .paint-frame { display: grid; grid-template-columns: 22px auto 22px; grid-template-rows: 22px auto 22px; gap: 6px; }
+  .paint-frame .bar { border-radius: 8px; border: 2px solid rgba(0,0,0,.2); }
+  .paint-frame .bar.t { grid-column: 2; grid-row: 1; }
+  .paint-frame .bar.b { grid-column: 2; grid-row: 3; }
+  .paint-frame .bar.l { grid-column: 1; grid-row: 2; }
+  .paint-frame .bar.r { grid-column: 3; grid-row: 2; }
+  .grid {
+    grid-column: 2; grid-row: 2; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    background: #222; padding: 6px; border-radius: 16px; width: min(64vw, 270px); aspect-ratio: 1;
+  }
+  .grid button { border-radius: 10px; border: none; font-size: 26px; color: rgba(0,0,0,.35); }
+  .grid button.empty { background: repeating-linear-gradient(45deg, #ddd, #ddd 6px, #eee 6px, #eee 12px); }
+  .grid button.center { cursor: default; box-shadow: inset 0 0 0 4px rgba(0,0,0,.25); }
+  .palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .palette button {
+    aspect-ratio: 1; border-radius: 16px; border: 4px solid rgba(0,0,0,.15); position: relative;
+    font-size: 13px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px;
+  }
+  .palette button.sel { border-color: var(--ink); transform: scale(1.1); box-shadow: 0 4px 0 rgba(0,0,0,.25); }
+  .palette button span { background: rgba(255,255,255,.85); border-radius: 8px; padding: 0 5px; color: var(--ink); }
+  .palette button span.over { background: #ff4d4d; color: #fff; }
+
+  .msg { border-radius: 16px; padding: 12px 14px; font-size: 18px; line-height: 1.4; display: none; }
+  .msg.on { display: block; }
+  .msg.bad { background: #ffe3e3; color: #a12828; }
+  .msg.info { background: #e6f4ea; color: #1b6b3f; }
+
+  /* 기다리기 / 축하 */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(255, 246, 229, .85); display: none; z-index: 20;
+    align-items: center; justify-content: center; flex-direction: column; gap: 12px; text-align: center; padding: 16px;
+  }
+  .overlay.on { display: flex; }
+  .overlay .big { font-size: 80px; }
+  .overlay .spin { animation: spin 1.2s linear infinite; display: inline-block; }
+  .overlay h2 { font-weight: normal; font-size: 32px; margin: 0; }
+  .overlay p { margin: 0; font-size: 19px; color: var(--soft); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pop { 0% { transform: scale(.3); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  .overlay.win .big { animation: pop .6s ease-out; }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
+
+  @media (min-width: 700px) {
+    .pad { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 380px) {
+    .move-text { font-size: 20px; }
+    .btn { font-size: 18px; }
+  }
+</style>
+<script type="importmap">
+  { "imports": { "three": "./lib/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 id="title">🧊 큐브 도우미</h1>
+    <button class="home-btn" id="homeBtn" style="display:none">🏠 처음으로</button>
+  </header>
+
+  <!-- 첫 화면 -->
+  <section class="screen on" id="scr-home">
+    <div class="hero">
+      <div class="big">🧊</div>
+      <p>무엇을 할까요?</p>
+    </div>
+    <button class="menu-card" id="goSolve">
+      <div class="emo">🧑‍🔧</div>
+      <div><b>내 큐브 맞추기</b><span>진짜 큐브 색깔을 알려주면<br />하나씩 따라 하는 방법을 알려줘요</span></div>
+    </button>
+    <button class="menu-card" id="goPlay">
+      <div class="emo">🎮</div>
+      <div><b>화면 큐브 놀이</b><span>화면 속 큐브를 섞고 돌려 보고<br />다시 맞추는 걸 구경해요</span></div>
+    </button>
+  </section>
+
+  <!-- 3D 큐브 (여러 화면이 같이 씀) -->
+  <div class="stage" id="stage" style="display:none">
+    <button class="view-reset" id="viewReset">👀 원래대로</button>
+    <div class="hint" id="stageHint">손가락으로 끌면 큐브를 빙글빙글 볼 수 있어요</div>
+  </div>
+
+  <!-- 놀이 -->
+  <section class="screen" id="scr-play">
+    <div class="row" style="--f:19px">
+      <button class="btn primary" id="scrambleBtn">🎲 섞기</button>
+      <button class="btn good" id="autoSolveBtn">✨ 맞춰줘!</button>
+      <button class="btn" id="resetBtn">🔄 새로</button>
+    </div>
+    <div class="pad" id="pad"></div>
+  </section>
+
+  <!-- 색칠하기 -->
+  <section class="screen" id="scr-paint">
+    <div class="face-steps" id="faceSteps"></div>
+    <div class="say" id="paintSay"></div>
+    <div class="paint-wrap">
+      <div class="paint-frame">
+        <div class="bar t" id="barT"></div>
+        <div class="bar l" id="barL"></div>
+        <div class="grid" id="grid"></div>
+        <div class="bar r" id="barR"></div>
+        <div class="bar b" id="barB"></div>
+      </div>
+    </div>
+    <div class="say"><small>색을 고르고 ▦ 칸을 눌러 칠해요</small></div>
+    <div class="palette" id="palette"></div>
+    <div class="msg" id="paintMsg"></div>
+    <div class="row">
+      <button class="btn" id="paintPrev">◀ 앞 면</button>
+      <button class="btn primary" id="paintNext">다음 면 ▶</button>
+    </div>
+  </section>
+
+  <!-- 따라하기 안내 -->
+  <section class="screen" id="scr-guide">
+    <div class="guide">
+      <div class="top"><span id="stepCount">1 / 20</span><span id="guideMode"></span></div>
+      <div class="progress"><i id="progressBar"></i></div>
+      <div class="hold-tip" id="holdTip">
+        큐브를 <span class="chip" style="background:#fff"></span> 흰색 가운데가 <b>위</b>,
+        <span class="chip" style="background:#009b48"></span> 초록 가운데가 <b>나를 보게</b> 들고 따라 해요
+      </div>
+      <div class="move-say">
+        <div class="move-icon" id="moveIcon">⬆️</div>
+        <div class="move-text" id="moveText"></div>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn" id="guidePrev">◀ 뒤로</button>
+      <button class="btn blue" id="guideReplay">🔁 다시 보기</button>
+    </div>
+    <button class="btn primary" id="guideNext" style="font-size:26px;padding:18px">다음 ▶</button>
+    <div class="row">
+      <button class="btn" id="guideAuto">⏩ 끝까지 자동</button>
+    </div>
+  </section>
+</div>
+
+<div class="overlay" id="waitOv">
+  <div class="big"><span class="spin">🧊</span></div>
+  <h2>생각하는 중이에요…</h2>
+  <p>큐브 맞추는 방법을 찾고 있어요</p>
+</div>
+<div class="overlay win" id="winOv">
+  <div class="big">🎉</div>
+  <h2>다 맞췄어요!</h2>
+  <p id="winSub">정말 대단해요!</p>
+  <div class="row" style="width:100%;max-width:420px;margin-top:10px">
+    <button class="btn primary" id="winAgain">한 번 더!</button>
+    <button class="btn" id="winHome">🏠 처음으로</button>
+  </div>
+</div>
+<canvas id="confetti"></canvas>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './lib/OrbitControls.js';
+
+// ───────────── 색과 면 ─────────────
+// 면 순서는 풀이 프로그램(Kociemba) 규칙: U R F D L B
+const FACES = ['U', 'R', 'F', 'D', 'L', 'B'];
+// 보통 큐브 색 배치: 흰 위, 초록 앞, 빨강 오른쪽
+const FACE_COLOR = { U: 'W', R: 'R', F: 'G', D: 'Y', L: 'O', B: 'B' };
+const COLOR_FACE = Object.fromEntries(Object.entries(FACE_COLOR).map(([f, c]) => [c, f]));
+const HEX = { W: '#ffffff', Y: '#ffd500', G: '#009b48', B: '#0046ad', R: '#c41e3a', O: '#ff6a00', X: '#9a9a9a' };
+const NAME = { W: '흰색', Y: '노랑', G: '초록', B: '파랑', R: '빨강', O: '주황' };
+const PALETTE = ['W', 'Y', 'G', 'B', 'R', 'O'];
+// 돌리는 방향 그림 (↻ 글자는 폰에 따라 작게 나와서 그림으로)
+const ROT = (cw) => `<svg viewBox="0 0 48 48" width="1.1em" height="1.1em" style="vertical-align:middle${cw ? '' : ';transform:scaleX(-1)'}">
+  <path d="M24 8a16 16 0 1 1-15.2 11" fill="none" stroke="#e65c26" stroke-width="6" stroke-linecap="round"/>
+  <path d="M24 0l10 8-10 8z" fill="#e65c26"/></svg>`;
+const CW = ROT(true), CCW = ROT(false);
+const chip = (c) => `<span class="chip" style="background:${HEX[c]}"></span>`;
+
+// 각 면 스티커(r,c)의 좌표. x=오른쪽, y=위, z=앞
+const POS = {
+  U: (r, c) => [c - 1, 1, r - 1],
+  R: (r, c) => [1, 1 - r, 1 - c],
+  F: (r, c) => [c - 1, 1 - r, 1],
+  D: (r, c) => [c - 1, -1, 1 - r],
+  L: (r, c) => [-1, 1 - r, c - 1],
+  B: (r, c) => [1 - c, 1 - r, -1],
+};
+const NORMAL = { U: [0, 1, 0], R: [1, 0, 0], F: [0, 0, 1], D: [0, -1, 0], L: [-1, 0, 0], B: [0, 0, -1] };
+const faceOfNormal = (n) => FACES.find((f) => NORMAL[f].every((v, i) => v === n[i]));
+const STICKER_INDEX = {};
+FACES.forEach((f, fi) => {
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+    STICKER_INDEX[f + ':' + POS[f](r, c).join(',')] = fi * 9 + r * 3 + c;
+  }
+});
+const SOLVED = FACES.map((f) => FACE_COLOR[f].repeat(9)).join('');
+
+// ───────────── 3D 장면 ─────────────
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+stage.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+const HOME_CAM = new THREE.Vector3(5.2, 4.6, 7.4);
+camera.position.copy(HOME_CAM);
+scene.add(new THREE.AmbientLight(0xffffff, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(4, 8, 6);
+scene.add(sun);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enablePan = false;
+controls.enableDamping = true;
+controls.minDistance = 7;
+controls.maxDistance = 16;
+controls.rotateSpeed = 0.8;
+
+const cubeRoot = new THREE.Group();
+scene.add(cubeRoot);
+
+function roundedRect(w, r) {
+  const s = new THREE.Shape();
+  const h = w / 2;
+  s.moveTo(-h + r, -h);
+  s.lineTo(h - r, -h); s.quadraticCurveTo(h, -h, h, -h + r);
+  s.lineTo(h, h - r); s.quadraticCurveTo(h, h, h - r, h);
+  s.lineTo(-h + r, h); s.quadraticCurveTo(-h, h, -h, h - r);
+  s.lineTo(-h, -h + r); s.quadraticCurveTo(-h, -h, -h + r, -h);
+  return new THREE.ShapeGeometry(s, 6);
+}
+const bodyGeo = new THREE.BoxGeometry(0.97, 0.97, 0.97);
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.6 });
+const stickerGeo = roundedRect(0.84, 0.12);
+const stickerMats = {};
+for (const [k, v] of Object.entries(HEX)) {
+  stickerMats[k] = new THREE.MeshBasicMaterial({ color: new THREE.Color(v) });
+}
+
+const cubies = [];
+const stickers = []; // {mesh, cubie, normal(local)}
+for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) {
+  if (!x && !y && !z) continue;
+  const cubie = new THREE.Group();
+  cubie.add(new THREE.Mesh(bodyGeo, bodyMat));
+  cubie.userData.home = new THREE.Vector3(x, y, z);
+  const pos = [x, y, z];
+  for (const f of FACES) {
+    const n = NORMAL[f];
+    const axis = n.findIndex((v) => v !== 0);
+    if (pos[axis] !== n[axis]) continue;
+    const m = new THREE.Mesh(stickerGeo, stickerMats[FACE_COLOR[f]]);
+    m.position.set(n[0] * 0.49, n[1] * 0.49, n[2] * 0.49);
+    m.lookAt(n[0], n[1], n[2]);
+    cubie.add(m);
+    stickers.push({ mesh: m, cubie, normal: new THREE.Vector3(...n) });
+  }
+  cubie.position.set(x, y, z);
+  cubeRoot.add(cubie);
+  cubies.push(cubie);
+}
+
+// 지금 큐브 상태를 54글자 색 문자열로 읽기
+function readColors() {
+  const out = new Array(54);
+  const n = new THREE.Vector3();
+  for (const s of stickers) {
+    n.copy(s.normal).applyQuaternion(s.cubie.quaternion);
+    const f = faceOfNormal([Math.round(n.x), Math.round(n.y), Math.round(n.z)]);
+    const p = s.cubie.position;
+    const idx = STICKER_INDEX[f + ':' + [Math.round(p.x), Math.round(p.y), Math.round(p.z)].join(',')];
+    out[idx] = s.color;
+  }
+  return out.join('');
+}
+// 색 문자열대로 큐브를 새로 칠하기 ('X' = 아직 모름)
+function setColors(str) {
+  for (const c of cubies) {
+    c.position.copy(c.userData.home);
+    c.quaternion.identity();
+  }
+  for (const s of stickers) {
+    const f = faceOfNormal(s.normal.toArray());
+    const idx = STICKER_INDEX[f + ':' + s.cubie.position.toArray().join(',')];
+    s.color = str[idx];
+    s.mesh.material = stickerMats[s.color];
+  }
+}
+setColors(SOLVED);
+
+// ───────────── 돌리기 ─────────────
+// 시계 방향 = 그 면을 정면에서 볼 때 시계 방향
+const MOVE_DEF = {
+  U: ['y', 1, -1], D: ['y', -1, 1], R: ['x', 1, -1], L: ['x', -1, 1], F: ['z', 1, -1], B: ['z', -1, 1],
+};
+const AXIS = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+const parseMove = (m) => ({ face: m[0], turns: m.includes('2') ? 2 : m.includes("'") ? -1 : 1 });
+const invertMove = (m) => (m.includes('2') ? m : m.includes("'") ? m[0] : m[0] + "'");
+
+let busy = false;
+const queue = [];
+let speedMs = 450;
+
+function turnLayer(move, ms) {
+  return new Promise((resolve) => {
+    const { face, turns } = parseMove(move);
+    const [ax, layer, dir] = MOVE_DEF[face];
+    const angle = (Math.PI / 2) * dir * turns;
+    const pivot = new THREE.Group();
+    cubeRoot.add(pivot);
+    const layerCubies = cubies.filter((c) => Math.round(c.position[ax]) === layer);
+    layerCubies.forEach((c) => pivot.attach(c));
+    const done = () => {
+      pivot.quaternion.setFromAxisAngle(AXIS[ax], angle);
+      pivot.updateMatrixWorld(true);
+      layerCubies.forEach((c) => {
+        cubeRoot.attach(c);
+        c.position.set(Math.round(c.position.x), Math.round(c.position.y), Math.round(c.position.z));
+        const e = new THREE.Matrix4().makeRotationFromQuaternion(c.quaternion).elements.map(Math.round);
+        c.quaternion.setFromRotationMatrix(new THREE.Matrix4().fromArray(e));
+      });
+      cubeRoot.remove(pivot);
+      resolve();
+    };
+    if (!ms) return done();
+    const t0 = performance.now();
+    const dur = ms * (turns === 2 ? 1.5 : 1);
+    tick();
+    playClick();
+    function tick() {
+      const t = Math.min(1, (performance.now() - t0) / dur);
+      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      pivot.quaternion.setFromAxisAngle(AXIS[ax], angle * e);
+      if (t < 1) requestAnimationFrame(tick); else done();
+    }
+  });
+}
+async function runQueue() {
+  if (busy) return;
+  busy = true;
+  while (queue.length) {
+    const { move, ms, after } = queue.shift();
+    await turnLayer(move, ms);
+    after && after();
+  }
+  busy = false;
+  onIdle && onIdle();
+}
+function doMove(move, ms = speedMs, after) {
+  queue.push({ move, ms, after });
+  runQueue();
+}
+let onIdle = null;
+
+// 반짝 효과: 돌아갈 줄을 살짝 키웠다 줄이기
+function flashLayer(face) {
+  const [ax, layer] = MOVE_DEF[face];
+  const list = cubies.filter((c) => Math.round(c.position[ax]) === layer);
+  const t0 = performance.now();
+  (function tick() {
+    const t = (performance.now() - t0) / 350;
+    const s = 1 + 0.08 * Math.sin(Math.min(t, 1) * Math.PI);
+    list.forEach((c) => c.scale.setScalar(s));
+    if (t < 1) requestAnimationFrame(tick); else list.forEach((c) => c.scale.setScalar(1));
+  })();
+}
+
+// ───────────── 카메라 ─────────────
+let camAnim = null;
+function moveCamera(pos, up = new THREE.Vector3(0, 1, 0), ms = 500) {
+  const from = camera.position.clone();
+  const fromUp = camera.up.clone();
+  const t0 = performance.now();
+  camAnim = () => {
+    const t = Math.min(1, (performance.now() - t0) / ms);
+    const e = 1 - Math.pow(1 - t, 3);
+    camera.position.lerpVectors(from, pos, e);
+    camera.up.lerpVectors(fromUp, up, e).normalize();
+    camera.lookAt(0, 0, 0);
+    if (t >= 1) camAnim = null;
+  };
+}
+function homeView() {
+  controls.enabled = true;
+  moveCamera(HOME_CAM.clone());
+}
+document.getElementById('viewReset').onclick = homeView;
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+renderer.setAnimationLoop(() => {
+  if (camAnim) camAnim();
+  else if (controls.enabled) controls.update();
+  renderer.render(scene, camera);
+});
+
+// ───────────── 소리 ─────────────
+let actx = null;
+function beep(freq, len = 0.06, vol = 0.05, type = 'triangle', delay = 0) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.value = freq;
+    const t = actx.currentTime + delay;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g).connect(actx.destination);
+    o.start(t); o.stop(t + len);
+  } catch (e) { /* 소리 안 나도 괜찮음 */ }
+}
+const playClick = () => beep(520 + Math.random() * 80, 0.05, 0.03);
+const playWin = () => [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.25, 0.07, 'sine', i * 0.12));
+
+// ───────────── 풀이 계산기 (Worker) ─────────────
+const worker = new Worker('worker.js');
+let solverReady = false;
+let jobId = 0;
+const jobs = {};
+worker.onmessage = (e) => {
+  const d = e.data;
+  if (d.type === 'ready') { solverReady = true; return; }
+  const job = jobs[d.id];
+  delete jobs[d.id];
+  if (!job) return;
+  if (d.type === 'solved') job.resolve(d.solution.trim() ? d.solution.trim().split(/\s+/) : []);
+  else job.reject(new Error(d.message));
+};
+function solveColors(colors) {
+  const facelets = [...colors].map((c) => COLOR_FACE[c]).join('');
+  return new Promise((resolve, reject) => {
+    const id = ++jobId;
+    jobs[id] = { resolve, reject };
+    worker.postMessage({ id, facelets });
+  });
+}
+
+// ───────────── 색 검사 (진짜 큐브로 가능한지) ─────────────
+const CORNER_FACELET = [[8, 9, 20], [6, 18, 38], [0, 36, 47], [2, 45, 11], [29, 26, 15], [27, 44, 24], [33, 53, 42], [35, 17, 51]];
+const EDGE_FACELET = [[5, 10], [7, 19], [3, 37], [1, 46], [32, 16], [28, 25], [30, 43], [34, 52], [23, 12], [21, 41], [50, 39], [48, 14]];
+const CORNER_COLOR = [['U', 'R', 'F'], ['U', 'F', 'L'], ['U', 'L', 'B'], ['U', 'B', 'R'], ['D', 'F', 'R'], ['D', 'L', 'F'], ['D', 'B', 'L'], ['D', 'R', 'B']];
+const EDGE_COLOR = [['U', 'R'], ['U', 'F'], ['U', 'L'], ['U', 'B'], ['D', 'R'], ['D', 'F'], ['D', 'L'], ['D', 'B'], ['F', 'R'], ['F', 'L'], ['B', 'L'], ['B', 'R']];
+const parity = (p) => {
+  let s = 0;
+  for (let i = 0; i < p.length; i++) for (let j = i + 1; j < p.length; j++) if (p[i] > p[j]) s++;
+  return s % 2;
+};
+function checkColors(colors) {
+  for (const c of PALETTE) {
+    const n = [...colors].filter((x) => x === c).length;
+    if (n !== 9) return `${chip(c)} ${NAME[c]}이 ${n}개예요. 모든 색은 딱 9개씩 있어야 해요. 다시 한번 살펴볼까요?`;
+  }
+  const f = [...colors].map((c) => COLOR_FACE[c]);
+  const cp = [], co = [], ep = [], eo = [];
+  for (let i = 0; i < 8; i++) {
+    let ori = 0;
+    for (; ori < 3; ori++) if (f[CORNER_FACELET[i][ori]] === 'U' || f[CORNER_FACELET[i][ori]] === 'D') break;
+    if (ori === 3) return '모서리 조각 중에 있을 수 없는 색 조합이 있어요. 칠한 색을 다시 확인해 볼까요?';
+    const c1 = f[CORNER_FACELET[i][(ori + 1) % 3]], c2 = f[CORNER_FACELET[i][(ori + 2) % 3]];
+    const j = CORNER_COLOR.findIndex((cc) => cc[1] === c1 && cc[2] === c2);
+    if (j < 0) return '모서리 조각 중에 있을 수 없는 색 조합이 있어요. 칠한 색을 다시 확인해 볼까요?';
+    cp.push(j); co.push(ori);
+  }
+  for (let i = 0; i < 12; i++) {
+    const a = f[EDGE_FACELET[i][0]], b = f[EDGE_FACELET[i][1]];
+    let j = EDGE_COLOR.findIndex((e) => e[0] === a && e[1] === b);
+    if (j >= 0) { ep.push(j); eo.push(0); continue; }
+    j = EDGE_COLOR.findIndex((e) => e[0] === b && e[1] === a);
+    if (j < 0) return '가장자리 조각 중에 있을 수 없는 색 조합이 있어요. 칠한 색을 다시 확인해 볼까요?';
+    ep.push(j); eo.push(1);
+  }
+  if (new Set(cp).size !== 8 || new Set(ep).size !== 12) return '같은 조각이 두 번 나왔어요. 칠한 색을 다시 확인해 볼까요?';
+  if (co.reduce((a, b) => a + b, 0) % 3 || eo.reduce((a, b) => a + b, 0) % 2 || parity(cp) !== parity(ep)) {
+    return '색이 살짝 틀린 곳이 있는 것 같아요. 칸 하나하나 다시 확인해 볼까요? (큐브를 뜯었다 다시 끼웠다면 조각이 뒤집혀 있을 수도 있어요)';
+  }
+  return null;
+}
+
+// ───────────── 동작을 쉬운 말로 ─────────────
+// 흰색 위 · 초록 앞 으로 들고 있을 때 기준
+const MOVE_TALK = {
+  R: ['⬆️', '<b>오른쪽</b> 줄을 <b>위로</b> 올려요'],
+  "R'": ['⬇️', '<b>오른쪽</b> 줄을 <b>아래로</b> 내려요'],
+  L: ['⬇️', '<b>왼쪽</b> 줄을 <b>아래로</b> 내려요'],
+  "L'": ['⬆️', '<b>왼쪽</b> 줄을 <b>위로</b> 올려요'],
+  U: ['⬅️', '<b>맨 위</b> 줄을 <b>왼쪽으로</b> 밀어요'],
+  "U'": ['➡️', '<b>맨 위</b> 줄을 <b>오른쪽으로</b> 밀어요'],
+  D: ['➡️', '<b>맨 아래</b> 줄을 <b>오른쪽으로</b> 밀어요'],
+  "D'": ['⬅️', '<b>맨 아래</b> 줄을 <b>왼쪽으로</b> 밀어요'],
+  F: [CW, '<b>앞면</b>을 <b>시계 방향</b>으로 돌려요'],
+  "F'": [CCW, '<b>앞면</b>을 <b>시계 반대 방향</b>으로 돌려요'],
+  B: [CCW, '<b>뒷면</b>을 (앞에서 볼 때) <b>시계 반대 방향</b>으로 돌려요'],
+  "B'": [CW, '<b>뒷면</b>을 (앞에서 볼 때) <b>시계 방향</b>으로 돌려요'],
+};
+const FACE_WORD = { U: '위', D: '아래', R: '오른쪽', L: '왼쪽', F: '앞', B: '뒤' };
+function talk(move) {
+  const base = move.replace('2', '');
+  const [icon, text] = MOVE_TALK[base];
+  const twice = move.includes('2');
+  return { icon, text: twice ? text + ' — <b>두 번!</b>' : text, twice };
+}
+
+// ───────────── 화면 전환 ─────────────
+const $ = (id) => document.getElementById(id);
+const screens = ['home', 'play', 'paint', 'guide'];
+let current = 'home';
+function show(name) {
+  current = name;
+  screens.forEach((s) => $('scr-' + s).classList.toggle('on', s === name));
+  stage.style.display = name === 'home' ? 'none' : 'block';
+  stage.classList.toggle('small', name === 'paint');
+  stage.classList.toggle('mid', name === 'guide');
+  $('homeBtn').style.display = name === 'home' ? 'none' : 'block';
+  $('viewReset').style.display = name === 'paint' ? 'none' : 'block';
+  $('stageHint').style.display = name === 'paint' ? 'none' : 'block';
+  $('title').textContent = { home: '🧊 큐브 도우미', play: '🎮 큐브 놀이', paint: '🎨 색깔 알려주기', guide: '🧑‍🔧 따라 하기' }[name];
+  requestAnimationFrame(resize);
+}
+$('homeBtn').onclick = () => { stopAuto(); queue.length = 0; show('home'); };
+
+// ───────────── 놀이 ─────────────
+const PAD = [
+  ['오른쪽 줄', ['R', '⬆️'], ["R'", '⬇️']],
+  ['왼쪽 줄', ['L\'', '⬆️'], ['L', '⬇️']],
+  ['맨 위 줄', ['U', '⬅️'], ["U'", '➡️']],
+  ['맨 아래 줄', ["D'", '⬅️'], ['D', '➡️']],
+  ['앞면', ["F'", CCW], ['F', CW]],
+  ['뒷면', ['B', CCW], ["B'", CW]],
+];
+$('pad').innerHTML = PAD.map(([name, a, b]) => `
+  <div class="pad-group"><div class="name">${name}</div>
+  <div class="pair"><button data-m="${a[0]}">${a[1]}</button><button data-m="${b[0]}">${b[1]}</button></div></div>`).join('');
+$('pad').onclick = (e) => {
+  const m = e.target.closest('button')?.dataset.m;
+  if (!m) return;
+  doMove(m, 260, checkPlayWin);
+};
+let playScrambled = false;
+function checkPlayWin() {
+  if (current === 'play' && playScrambled && !queue.length && readColors() === SOLVED) {
+    playScrambled = false;
+    win('혼자서 맞췄어요! 천재인가요? 🤩');
+  }
+}
+$('goPlay').onclick = () => { show('play'); homeView(); };
+$('resetBtn').onclick = () => { if (busy) return; setColors(SOLVED); playScrambled = false; };
+$('scrambleBtn').onclick = () => {
+  if (busy) return;
+  const faces = 'URFDLB';
+  let last = '';
+  for (let i = 0; i < 20; i++) {
+    let f;
+    do { f = faces[Math.floor(Math.random() * 6)]; } while (f === last);
+    last = f;
+    doMove(f + ['', "'", '2'][Math.floor(Math.random() * 3)], 110);
+  }
+  playScrambled = true;
+};
+$('autoSolveBtn').onclick = async () => {
+  if (busy) return;
+  const colors = readColors();
+  if (colors === SOLVED) { toastInfo(); return; }
+  startGuide(colors, 'play');
+};
+function toastInfo() {
+  $('scrambleBtn').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 400, iterations: 2 });
+}
+
+// ───────────── 색칠하기 ─────────────
+// 칠하는 순서와 들고 있는 방법
+const PAINT_ORDER = [
+  { f: 'F', say: `${chip('W')} 흰색 가운데가 <b>위</b>, ${chip('G')} 초록 가운데가 <b>나를 보게</b> 들어요`, sub: '보이는 초록 면의 색을 똑같이 칠해요' },
+  { f: 'R', say: `큐브를 <b>왼쪽으로</b> 한 번 돌려서 ${chip('R')} 빨강이 나를 보게 해요`, sub: '흰색은 계속 위에 있어요' },
+  { f: 'B', say: `또 <b>왼쪽으로</b> 한 번 돌려서 ${chip('B')} 파랑이 나를 보게 해요`, sub: '흰색은 계속 위에 있어요' },
+  { f: 'L', say: `또 <b>왼쪽으로</b> 한 번 돌려서 ${chip('O')} 주황이 나를 보게 해요`, sub: '흰색은 계속 위에 있어요' },
+  { f: 'U', say: `초록이 나를 보게 한 다음, 큐브를 <b>내 쪽으로 눕혀서</b> ${chip('W')} 흰색이 나를 보게 해요`, sub: '초록은 아래쪽에 있어요' },
+  { f: 'D', say: `초록이 나를 보게 한 다음, 큐브를 <b>반대쪽으로 눕혀서</b> ${chip('Y')} 노랑이 나를 보게 해요`, sub: '초록은 위쪽에 있어요' },
+];
+// 칠하는 칸 둘레에 보이는 이웃 면 색 (위, 오른쪽, 아래, 왼쪽)
+const NEIGHBOR = { F: 'WRYO', R: 'WBYG', B: 'WOYR', L: 'WGYB', U: 'BRGO', D: 'GRBO' };
+const PAINT_CAM = {
+  F: [[0.35, 0.4, 1], [0, 1, 0]], R: [[1, 0.4, -0.35], [0, 1, 0]], B: [[-0.35, 0.4, -1], [0, 1, 0]],
+  L: [[-1, 0.4, 0.35], [0, 1, 0]], U: [[0.35, 1, -0.4], [0, 0, -1]], D: [[0.35, -1, 0.4], [0, 0, 1]],
+};
+let paint = null; // 54칸 색 배열
+let paintStep = 0;
+let brush = 'W';
+
+function paintColors() { return paint.join(''); }
+function renderPaint() {
+  const { f, say, sub } = PAINT_ORDER[paintStep];
+  const fi = FACES.indexOf(f);
+  $('faceSteps').innerHTML = PAINT_ORDER.map((p, i) => {
+    const full = paint.slice(FACES.indexOf(p.f) * 9, FACES.indexOf(p.f) * 9 + 9).every((c) => c !== 'X');
+    return `<i class="${i === paintStep ? 'now' : full ? 'done' : ''}" style="background:${HEX[FACE_COLOR[p.f]]}"></i>`;
+  }).join('');
+  $('paintSay').innerHTML = `<b>${paintStep + 1}번째 면</b> · ${say}<small>${sub}</small>`;
+  const nb = NEIGHBOR[f];
+  ['T', 'R', 'B', 'L'].forEach((k, i) => { $('bar' + k).style.background = HEX[nb[i]]; });
+  $('grid').innerHTML = paint.slice(fi * 9, fi * 9 + 9).map((c, i) =>
+    `<button data-i="${fi * 9 + i}" class="${i === 4 ? 'center' : ''} ${c === 'X' ? 'empty' : ''}" style="${c === 'X' ? '' : 'background:' + HEX[c]}">${i === 4 ? '' : ''}</button>`).join('');
+  $('palette').innerHTML = PALETTE.map((c) => {
+    const n = paint.filter((x) => x === c).length;
+    return `<button data-c="${c}" class="${c === brush ? 'sel' : ''}" style="background:${HEX[c]}" aria-label="${NAME[c]}"><span class="${n > 9 ? 'over' : ''}">${n}/9</span></button>`;
+  }).join('');
+  const faceFull = paint.slice(fi * 9, fi * 9 + 9).every((c) => c !== 'X');
+  $('paintPrev').disabled = paintStep === 0;
+  $('paintNext').disabled = !faceFull;
+  $('paintNext').innerHTML = paintStep === 5 ? '✅ 다 칠했어요!' : '다음 면 ▶';
+  $('paintNext').className = 'btn ' + (paintStep === 5 ? 'good' : 'primary');
+  setColors(paintColors());
+}
+function paintCamera() {
+  const [d, up] = PAINT_CAM[PAINT_ORDER[paintStep].f];
+  controls.enabled = false;
+  moveCamera(new THREE.Vector3(...d).normalize().multiplyScalar(9), new THREE.Vector3(...up));
+}
+$('grid').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b || b.classList.contains('center')) return;
+  const i = +b.dataset.i;
+  paint[i] = paint[i] === brush ? 'X' : brush;
+  beep(660, 0.05, 0.03);
+  hideMsg();
+  renderPaint();
+};
+$('palette').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  brush = b.dataset.c;
+  beep(440, 0.05, 0.03);
+  renderPaint();
+};
+$('paintPrev').onclick = () => { if (paintStep > 0) { paintStep--; hideMsg(); renderPaint(); paintCamera(); } };
+$('paintNext').onclick = () => {
+  if (paintStep < 5) { paintStep++; hideMsg(); renderPaint(); paintCamera(); return; }
+  const colors = paintColors();
+  const problem = checkColors(colors);
+  if (problem) { showMsg(problem); return; }
+  if (colors === SOLVED) { win('이미 다 맞춰져 있어요! 😎'); return; }
+  startGuide(colors, 'solve');
+};
+function showMsg(html, kind = 'bad') { const m = $('paintMsg'); m.className = 'msg on ' + kind; m.innerHTML = html; }
+function hideMsg() { $('paintMsg').className = 'msg'; }
+
+$('goSolve').onclick = () => {
+  if (!paint) {
+    paint = new Array(54).fill('X');
+    FACES.forEach((f, fi) => { paint[fi * 9 + 4] = FACE_COLOR[f]; });
+  }
+  paintStep = 0;
+  hideMsg();
+  show('paint');
+  renderPaint();
+  paintCamera();
+};
+
+// ───────────── 따라 하기 ─────────────
+let guide = null; // { moves, i, mode, startColors }
+let autoTimer = null;
+
+async function startGuide(colors, mode) {
+  $('waitOv').classList.add('on');
+  try {
+    const t0 = performance.now();
+    const moves = await solveColors(colors);
+    const wait = Math.max(0, 700 - (performance.now() - t0));
+    await new Promise((r) => setTimeout(r, wait));
+    guide = { moves, i: 0, mode, startColors: colors };
+    setColors(colors);
+    show('guide');
+    homeView();
+    $('holdTip').style.display = mode === 'solve' ? 'block' : 'none';
+    $('guideMode').textContent = mode === 'solve' ? `모두 ${moves.length}번만 돌리면 돼요!` : `${moves.length}번 만에 맞춰요`;
+    renderGuide();
+  } catch (e) {
+    showMsg('앗, 방법을 못 찾았어요. 칠한 색을 다시 확인해 볼까요?');
+  } finally {
+    $('waitOv').classList.remove('on');
+  }
+}
+function renderGuide() {
+  const { moves, i } = guide;
+  const total = moves.length;
+  $('stepCount').textContent = i < total ? `${i + 1} / ${total} 번째` : `${total} / ${total} 끝!`;
+  $('progressBar').style.width = (i / total) * 100 + '%';
+  if (i < total) {
+    const m = moves[i];
+    const { icon, text, twice } = talk(m);
+    const face = m[0];
+    const colorHint = guide.mode === 'solve' ? `<small>${chip(FACE_COLOR[face])} ${NAME[FACE_COLOR[face]]} 가운데가 있는 ${FACE_WORD[face]} 쪽</small>` : '';
+    $('moveIcon').innerHTML = icon + (twice ? '<span class="times">×2</span>' : '');
+    $('moveText').innerHTML = text + colorHint;
+    $('guideNext').innerHTML = '다음 ▶';
+  } else {
+    $('moveIcon').innerHTML = '🎉';
+    $('moveText').innerHTML = '다 맞췄어요!';
+    $('guideNext').innerHTML = '🎉 완성!';
+  }
+  $('guidePrev').disabled = i === 0;
+  $('guideReplay').disabled = i === 0;
+  $('guideAuto').disabled = i >= total;
+}
+let stepping = false; // 반짝 효과 후 돌리기 전까지 다른 버튼을 막는다
+function guideForward() {
+  if (busy || stepping || !guide) return;
+  const { moves } = guide;
+  if (guide.i >= moves.length) { finishGuide(); return; }
+  const m = moves[guide.i];
+  flashLayer(m[0]);
+  stepping = true;
+  setTimeout(() => doMove(m, speedMs, () => {
+    stepping = false;
+    guide.i++;
+    renderGuide();
+    if (guide.i >= moves.length) setTimeout(finishGuide, 500);
+  }), 250);
+}
+function finishGuide() {
+  stopAuto();
+  win(guide.mode === 'solve' ? '진짜 큐브도 다 맞춰졌나요? 최고예요! 🏆' : '큐브가 다시 맞춰졌어요!');
+}
+$('guideNext').onclick = () => { stopAuto(); guideForward(); };
+$('guidePrev').onclick = () => {
+  stopAuto();
+  if (busy || stepping || !guide || guide.i === 0) return;
+  const m = guide.moves[guide.i - 1];
+  flashLayer(m[0]);
+  doMove(invertMove(m), speedMs, () => { guide.i--; renderGuide(); });
+};
+$('guideReplay').onclick = () => {
+  stopAuto();
+  if (busy || stepping || !guide || guide.i === 0) return;
+  const m = guide.moves[guide.i - 1];
+  doMove(invertMove(m), 0);
+  flashLayer(m[0]);
+  stepping = true;
+  setTimeout(() => doMove(m, speedMs, () => { stepping = false; }), 300);
+};
+function stopAuto() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; $('guideAuto').innerHTML = '⏩ 끝까지 자동'; }
+}
+$('guideAuto').onclick = () => {
+  if (autoTimer) { stopAuto(); return; }
+  $('guideAuto').innerHTML = '⏸ 멈추기';
+  autoTimer = setInterval(() => {
+    if (!guide || guide.i >= guide.moves.length) { stopAuto(); return; }
+    guideForward();
+  }, 150);
+};
+
+// ───────────── 축하 ─────────────
+let lastWinMode = null;
+function win(sub) {
+  lastWinMode = current === 'guide' ? guide.mode : current === 'paint' ? 'solve' : 'play';
+  $('winSub').textContent = sub;
+  $('winOv').classList.add('on');
+  playWin();
+  confetti();
+}
+$('winAgain').onclick = () => {
+  $('winOv').classList.remove('on');
+  if (lastWinMode === 'solve') {
+    paint = null;
+    $('goSolve').onclick();
+  } else {
+    setColors(SOLVED);
+    show('play');
+    homeView();
+    $('scrambleBtn').onclick();
+  }
+};
+$('winHome').onclick = () => { $('winOv').classList.remove('on'); paint = null; show('home'); };
+
+function confetti() {
+  const cv = $('confetti');
+  const ctx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const colors = Object.values(HEX).slice(0, 6).concat(['#ff7a45', '#ffd1e8']);
+  const bits = Array.from({ length: 160 }, () => ({
+    x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.6,
+    vx: (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 4, r: Math.random() * Math.PI,
+    vr: (Math.random() - 0.5) * 0.3, s: 6 + Math.random() * 8, c: colors[Math.floor(Math.random() * colors.length)],
+  }));
+  const t0 = performance.now();
+  (function frame() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const b of bits) {
+      b.x += b.vx; b.y += b.vy; b.r += b.vr; b.vy += 0.03;
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.r);
+      ctx.fillStyle = b.c; ctx.strokeStyle = 'rgba(0,0,0,.15)';
+      ctx.fillRect(-b.s / 2, -b.s / 2, b.s, b.s * 0.6); ctx.strokeRect(-b.s / 2, -b.s / 2, b.s, b.s * 0.6);
+      ctx.restore();
+    }
+    if (performance.now() - t0 < 4000) requestAnimationFrame(frame);
+    else ctx.clearRect(0, 0, cv.width, cv.height);
+  })();
+}
+
+// 테스트용으로 몇 가지를 밖에서 볼 수 있게
+window.__cube = { readColors, setColors, doMove, checkColors, solveColors, get busy() { return busy; }, get solverReady() { return solverReady; }, SOLVED };
+</script>
+</body>
+</html>

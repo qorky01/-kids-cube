@@ -194,6 +194,18 @@
   .learn-note { background: #fff3e0; border-radius: 14px; padding: 10px 12px; font-size: 18px; line-height: 1.45; }
   .learn-note:empty { display: none; }
 
+  .spell-label { font-size: 16px; color: var(--soft); }
+  .spell { display: flex; flex-wrap: wrap; gap: 6px; }
+  .spell .mv {
+    display: flex; flex-direction: column; align-items: center; min-width: 60px; padding: 6px 6px 4px;
+    border-radius: 12px; background: #fff3e0; border: 2px solid var(--line); font-size: 15px; line-height: 1.2;
+  }
+  .spell .mv em { font-style: normal; font-size: 24px; line-height: 1.1; }
+  .spell .mv small { font-size: 12px; color: var(--soft); font-family: ui-monospace, Menlo, monospace; }
+  .spell .mv.done { opacity: .4; }
+  .spell .mv.now { background: var(--accent); border-color: var(--accent-dark); color: #fff; transform: scale(1.08); }
+  .spell .mv.now small { color: #ffe3d3; }
+
   /* 기다리기 / 축하 */
   .overlay {
     position: fixed; inset: 0; background: rgba(255, 246, 229, .85); display: none; z-index: 20;
@@ -241,6 +253,10 @@
     <button class="menu-card" id="goPlay">
       <div class="emo">🎮</div>
       <div><b>화면 큐브 놀이</b><span>화면 속 큐브를 섞고 돌려 보고<br />다시 맞추는 걸 구경해요</span></div>
+    </button>
+    <button class="menu-card" id="goLesson">
+      <div class="emo">📚</div>
+      <div><b>혼자 맞추는 법 배우기</b><span>7단계 주문만 외우면<br />나도 큐브를 혼자 맞출 수 있어요</span></div>
     </button>
     <button class="menu-card" id="goLearn">
       <div class="emo">🧠</div>
@@ -298,6 +314,28 @@
     <div class="row">
       <button class="btn" id="learnPrev">◀ 앞으로</button>
       <button class="btn primary" id="learnNext">다음 ▶</button>
+    </div>
+  </section>
+
+  <!-- 혼자 맞추는 법 -->
+  <section class="screen" id="scr-lesson">
+    <div class="learn">
+      <div class="learn-dots" id="lessonDots"></div>
+      <h2 id="lessonTitle"></h2>
+      <div class="learn-body" id="lessonBody"></div>
+      <div class="learn-demo" id="lessonCases"></div>
+      <div class="spell-label">🪄 주문</div>
+      <div class="spell" id="lessonSpell"></div>
+      <div class="learn-note" id="lessonNote"></div>
+    </div>
+    <div class="row" style="--f:18px">
+      <button class="btn" id="lessonReset">🔄 처음부터</button>
+      <button class="btn blue" id="lessonOne">▶ 한 번</button>
+      <button class="btn" id="lessonAll">⏩ 끝까지</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="lessonPrev">◀ 이전 단계</button>
+      <button class="btn primary" id="lessonNext">다음 단계 ▶</button>
     </div>
   </section>
 
@@ -694,18 +732,18 @@ function talk(move) {
 
 // ───────────── 화면 전환 ─────────────
 const $ = (id) => document.getElementById(id);
-const screens = ['home', 'play', 'paint', 'guide', 'learn'];
+const screens = ['home', 'play', 'paint', 'guide', 'learn', 'lesson'];
 let current = 'home';
 function show(name) {
   current = name;
   screens.forEach((s) => $('scr-' + s).classList.toggle('on', s === name));
   stage.style.display = name === 'home' ? 'none' : 'block';
   stage.classList.toggle('small', name === 'paint');
-  stage.classList.toggle('mid', name === 'guide' || name === 'learn');
+  stage.classList.toggle('mid', name === 'guide' || name === 'learn' || name === 'lesson');
   $('homeBtn').style.display = name === 'home' ? 'none' : 'block';
   $('viewReset').style.display = name === 'paint' ? 'none' : 'block';
   $('stageHint').style.display = name === 'paint' ? 'none' : 'block';
-  $('title').textContent = { home: '🧊 큐브 도우미', play: '🎮 큐브 놀이', paint: '🎨 색깔 알려주기', guide: '🧑‍🔧 따라 하기', learn: '🧠 큐브의 비밀' }[name];
+  $('title').textContent = { home: '🧊 큐브 도우미', play: '🎮 큐브 놀이', paint: '🎨 색깔 알려주기', guide: '🧑‍🔧 따라 하기', learn: '🧠 큐브의 비밀', lesson: '📚 혼자 맞추기' }[name];
   requestAnimationFrame(resize);
 }
 $('homeBtn').onclick = () => { stopAuto(); queue.length = 0; show('home'); };
@@ -1122,7 +1160,8 @@ const LEARN = [
   {
     title: '사람은 한 층씩 맞춰요',
     body: `<p>처음 배우는 사람은 큐브를 <b>3층 건물</b>처럼 생각하고 위에서부터 한 층씩 맞춰요. 단계를 눌러 봐요.</p>
-      <p>이미 맞춘 층은 주문을 쓰는 동안 잠깐 흐트러져도 <b>주문이 끝나면 다시 돌아와요</b>. 그게 주문의 비밀이에요!</p>`,
+      <p>이미 맞춘 층은 주문을 쓰는 동안 잠깐 흐트러져도 <b>주문이 끝나면 다시 돌아와요</b>. 그게 주문의 비밀이에요!</p>
+      <p>단계마다 쓰는 주문은 첫 화면의 <b>📚 혼자 맞추는 법 배우기</b>에서 배워요.</p>`,
     setup() { setColors(LAYER_STEPS[0][1]); homeView(); },
     demos: null, // 아래에서 채움
   },
@@ -1241,8 +1280,188 @@ $('learnNext').onclick = () => {
 };
 $('goLearn').onclick = () => { learnPage = 0; show('learn'); renderLearn(); };
 
+// ───────────── 혼자 맞추는 법 (7단계) ─────────────
+// 2단계부터는 흰색을 아래로 뒤집어 든다: 노랑 위, 파랑 앞, 빨강 오른쪽
+const FLIP_SOLVED = 'YRBWOG'.split('').map((c) => c.repeat(9)).join('');
+const maskOf = (base, keep) => [...base].map((c, idx) => (keep(STICKER_INFO[idx]) ? c : 'X')).join('');
+const isEdgeCubie = (t) => [t.x, t.y, t.z].filter((v) => v === 0).length === 1;
+const times = (seq, n) => Array(n).fill(seq).join(' ');
+const SEXY = "R U R' U'";
+const SUNE_Y = "F R U R' U' F'";
+const HOLD_WHITE_TOP = `${chip('W')} 흰 가운데가 <b>위</b>, ${chip('G')} 초록이 <b>앞</b>`;
+const HOLD_FLIP = `${chip('W')} 흰색을 <b>아래로</b> 뒤집어서 ${chip('Y')} 노랑이 <b>위</b>`;
+
+const LESSON = [
+  {
+    title: '1단계 · 흰색 십자 만들기',
+    body: `<p>들기: ${HOLD_WHITE_TOP}</p>
+      <p>흰 가운데 둘레에 흰 가장자리 조각 4개를 붙여서 <b>+ 모양</b>을 만들어요.</p>
+      <p>중요해요! 조각의 옆 색도 옆면 가운데와 같아야 해요. ${chip('W')}흰-${chip('G')}초록 조각은 초록 가운데 쪽에 붙어요.</p>
+      <p>흰-초록 조각이 어디 있는지에 따라 방법이 달라요 👇</p>`,
+    base: SOLVED,
+    keep: (t) => isCenter(t) || (t.y === 1 && isEdgeCubie(t)),
+    cases: [
+      ['⬇️ 맨 아래 줄에 있을 때', "D' F2", '아랫줄을 돌려서 조각을 초록 가운데 <b>바로 밑</b>으로 가져와요. 그다음 앞면을 <b>두 번</b> 돌리면 쏙!'],
+      ['↔️ 가운데 줄에 있을 때', "F'", '앞면을 한 번 돌려서 <b>위로</b> 올려요. 흰색이 위를 보면 성공!'],
+      ['🙃 위에 있는데 거꾸로일 때', "F U' R U", '흰색이 앞을 보고 있으면 뒤집어야 해요. 이 주문을 쓰면 흰색이 위로 와요.'],
+    ],
+    tip: '한 조각을 넣으면 큐브를 통째로 돌려서 다음 색(빨강, 파랑, 주황)이 앞에 오게 하고 똑같이 해요.',
+  },
+  {
+    title: '2단계 · 흰색 모서리 넣기',
+    body: `<p>들기: ${HOLD_FLIP}! 이제부터 끝까지 노랑이 위예요.</p>
+      <p>흰색이 붙은 <b>모서리 조각</b>을 맨 위층에서 찾아요. 윗줄을 돌려서 그 조각을 <b>제 집 바로 위</b>(오른쪽 앞 위)로 가져와요. 제 집은 조각의 두 옆 색 가운데 사이예요.</p>
+      <p>그다음 <b>큐브의 비밀 5쪽</b>에서 배운 주문을 흰색이 아래에 딱 맞을 때까지 반복해요!</p>`,
+    base: FLIP_SOLVED,
+    keep: (t) => isCenter(t) || t.y === -1,
+    cases: [
+      ['흰색이 오른쪽을 볼 때', SEXY, '주문 <b>1번</b>이면 들어가요!'],
+      ['흰색이 위를 볼 때', times(SEXY, 3), '주문을 <b>3번</b> 반복해요.'],
+      ['흰색이 앞을 볼 때', times(SEXY, 5), '주문을 <b>5번</b> 반복해요. 중간에 윗부분이 엉망이 돼도 괜찮아요.'],
+    ],
+    tip: '흰 모서리가 아래층에 잘못 끼어 있으면, 그 자리를 오른쪽 앞에 두고 주문 1번 하면 위로 튀어나와요.',
+  },
+  {
+    title: '3단계 · 가운데 층 맞추기',
+    body: `<p>들기: 노랑 위 그대로.</p>
+      <p>윗층에서 <b>노랑이 없는</b> 가장자리 조각을 찾아요. 윗줄을 돌려서 조각의 앞 색이 앞 가운데와 같게 해요 (세로로 <b>ㅣ</b> 모양).</p>
+      <p>조각의 윗 색이 오른쪽 가운데 색이면 <b>오른쪽 주문</b>, 왼쪽 가운데 색이면 <b>왼쪽 주문</b>을 해요.</p>`,
+    base: FLIP_SOLVED,
+    keep: (t) => isCenter(t) || t.y <= 0,
+    cases: [
+      ['➡️ 오른쪽으로 보내기', "U R U' R' U' F' U F", '앞-오른쪽 칸에 쏙 들어갔어요!'],
+      ['⬅️ 왼쪽으로 보내기', "U' L' U L U F U' F'", '앞-왼쪽 칸에 쏙 들어갔어요!'],
+    ],
+    tip: '조각이 가운데 층에 거꾸로 끼어 있으면, 그 자리를 앞-오른쪽에 두고 오른쪽 주문을 한 번 해서 빼내요.',
+  },
+  {
+    title: '4단계 · 노란 십자 만들기',
+    body: `<p>위에 <b>노란 + 모양</b>을 만들어요. 옆 색은 아직 신경 쓰지 않아도 돼요.</p>
+      <p>위에서 보면 노랑이 <b>점 •</b>, <b>ㄱ자</b>, <b>일자 ㅡ</b> 중 하나로 보여요.</p>
+      <p>ㄱ자는 <b>뒤와 왼쪽</b>에 오게, 일자는 <b>가로(왼쪽-오른쪽)</b>로 두고 주문을 해요.</p>`,
+    base: FLIP_SOLVED,
+    keep: (t) => isCenter(t) || t.y <= 0 || (t.f === 'U' && isEdge(t)),
+    cases: [
+      ['ㅡ 일자', SUNE_Y, '일자를 가로로 두고 주문 1번이면 십자 완성!'],
+      ['ㄱ자', times(SUNE_Y, 2), 'ㄱ자를 뒤-왼쪽에 두고 주문 → 가로 일자가 나오면 주문 한 번 더! (앞면을 반대로 돌렸다가 바로 다시 돌리는 게 맞아요)'],
+      ['• 점', `${SUNE_Y} U2 ${SUNE_Y} ${SUNE_Y}`, '점이면 주문 1번 → ㄱ자가 나오면 윗줄을 돌려 뒤-왼쪽에 두고 → 주문 2번 더!'],
+    ],
+    tip: '주문 순서: 앞면 시계 방향, 오른쪽 위로, 윗줄 왼쪽, 오른쪽 아래로, 윗줄 오른쪽, 앞면 반대 방향. 2단계 주문을 앞면으로 감싼 모양이에요!',
+  },
+  {
+    title: '5단계 · 노란 십자 옆 색 맞추기',
+    body: `<p>노란 가장자리 조각의 <b>옆 색</b>을 옆면 가운데와 맞춰요.</p>
+      <p>윗줄을 돌려 보면서 옆 색이 맞는 조각이 <b>2개</b> 되게 해요. 맞는 2개가 붙어 있으면 <b>뒤와 오른쪽</b>에 두고 주문!</p>`,
+    base: FLIP_SOLVED,
+    keep: (t) => isCenter(t) || t.y <= 0 || (t.y === 1 && isEdgeCubie(t)),
+    cases: [
+      ['맞는 2개가 뒤-오른쪽', "R U R' U R U2 R' U", '네 조각 옆 색이 다 맞았어요!'],
+    ],
+    tip: '맞는 2개가 서로 마주 보고 있으면, 아무렇게나 주문을 1번 하고 다시 보면 붙어 있게 돼요.',
+  },
+  {
+    title: '6단계 · 노란 모서리 제자리 찾기',
+    body: `<p>노란 모서리 조각을 <b>제 집</b>에 보내요. 조각의 색 3개가 둘레 가운데 3개와 같으면 제 집이에요. 돌아가 있어도 괜찮아요!</p>
+      <p>제 집에 있는 모서리를 <b>오른쪽 앞 위</b>에 두고 주문을 해요. 다 제 집에 올 때까지 반복!</p>`,
+    base: FLIP_SOLVED,
+    keep: () => true,
+    cases: [
+      ['오른쪽 앞 위가 제 집일 때', "U R U' L' U R' U' L", '나머지 모서리 3개도 제 집을 찾았어요!'],
+    ],
+    tip: '제 집에 있는 모서리가 하나도 없으면, 아무 데서나 주문을 1번 하면 하나가 생겨요.',
+  },
+  {
+    title: '7단계 · 노란 모서리 돌리기 (마지막!)',
+    body: `<p>노랑이 위를 안 보는 모서리를 <b>오른쪽 앞 위</b>에 두고 “오른쪽 아래로, 아랫줄 왼쪽, 오른쪽 위로, 아랫줄 오른쪽”을 노랑이 위를 볼 때까지 반복해요 (2번 또는 4번).</p>
+      <p>⚠️ 중간에 아래층이 엉망이 돼도 <b>절대 놀라지 마요!</b> 끝나면 다 돌아와요.</p>
+      <p>그다음 <b>윗줄만</b> 돌려서 다음 모서리를 오른쪽 앞 위로 가져와 또 반복. 마지막에 윗줄을 돌리면 완성!</p>`,
+    base: FLIP_SOLVED,
+    keep: () => true,
+    cases: [
+      ['모서리 2개가 돌아가 있을 때', `${times("R' D' R D", 2)} U ${times("R' D' R D", 4)} U'`, '🎉 큐브 완성! 이제 혼자서도 맞출 수 있어요!'],
+    ],
+    tip: '주문하는 동안에는 큐브를 통째로 돌리면 안 돼요. 윗줄만 돌려요!',
+  },
+];
+
+const FACE_SHORT = { R: '오른쪽', L: '왼쪽', U: '윗줄', D: '아랫줄', F: '앞면', B: '뒷면' };
+let lessonStep = 0, lessonCase = 0, lessonI = 0, lessonSeq = [];
+
+function lessonSetup() {
+  const L = LESSON[lessonStep];
+  queue.length = 0;
+  lessonSeq = L.cases[lessonCase][1].split(' ');
+  setColors(maskOf(L.base, L.keep));
+  lessonSeq.slice().reverse().map(invertMove).forEach((m) => turnLayer(m, 0));
+  lessonI = 0;
+  renderLessonSpell();
+  $('lessonNote').innerHTML = '💡 ' + L.tip;
+}
+function renderLessonSpell() {
+  $('lessonSpell').innerHTML = lessonSeq.map((m, i) => {
+    const icon = MOVE_TALK[m.replace('2', '')][0];
+    return `<span class="mv ${i < lessonI ? 'done' : i === lessonI ? 'now' : ''}"><em>${icon}</em>${FACE_SHORT[m[0]]}${m.includes('2') ? ' ×2' : ''}<small>${m}</small></span>`;
+  }).join('');
+  $('lessonOne').disabled = lessonI >= lessonSeq.length;
+  $('lessonAll').disabled = lessonI >= lessonSeq.length;
+}
+function lessonDone() {
+  const L = LESSON[lessonStep];
+  $('lessonNote').innerHTML = '✅ ' + L.cases[lessonCase][2];
+  if (lessonStep === LESSON.length - 1) { playWin(); confetti(); }
+}
+function lessonAdvance(ms, k = lessonI) {
+  const m = lessonSeq[k];
+  doMove(m, ms, () => {
+    lessonI++;
+    renderLessonSpell();
+    if (lessonI >= lessonSeq.length) lessonDone();
+  });
+}
+function renderLesson() {
+  const L = LESSON[lessonStep];
+  $('lessonDots').innerHTML = LESSON.map((_, i) => `<i class="${i === lessonStep ? 'now' : ''}"></i>`).join('');
+  $('lessonTitle').textContent = L.title;
+  $('lessonBody').innerHTML = L.body;
+  $('lessonCases').innerHTML = L.cases.length > 1
+    ? L.cases.map(([label], i) => `<button data-c="${i}" class="${i === lessonCase ? 'on' : ''}">${label}</button>`).join('') : '';
+  $('lessonPrev').disabled = lessonStep === 0;
+  $('lessonNext').innerHTML = lessonStep === LESSON.length - 1 ? '🧑‍🔧 내 큐브로 해보기' : '다음 단계 ▶';
+  $('lessonNext').className = 'btn ' + (lessonStep === LESSON.length - 1 ? 'good' : 'primary');
+  lessonSetup();
+}
+$('lessonCases').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b || busy) return;
+  lessonCase = +b.dataset.c;
+  renderLesson();
+};
+$('lessonReset').onclick = () => { if (!busy) lessonSetup(); };
+$('lessonOne').onclick = () => {
+  if (busy || lessonI >= lessonSeq.length) return;
+  flashLayer(lessonSeq[lessonI][0]);
+  lessonAdvance(500);
+};
+$('lessonAll').onclick = () => {
+  if (busy) return;
+  for (let k = lessonI; k < lessonSeq.length; k++) lessonAdvance(380, k);
+};
+function lessonGo(i) {
+  if (busy) return;
+  lessonStep = i;
+  lessonCase = 0;
+  renderLesson();
+  homeView();
+}
+$('lessonPrev').onclick = () => { if (lessonStep > 0) lessonGo(lessonStep - 1); };
+$('lessonNext').onclick = () => {
+  if (lessonStep < LESSON.length - 1) lessonGo(lessonStep + 1);
+  else if (!busy) $('goSolve').onclick();
+};
+$('goLesson').onclick = () => { show('lesson'); lessonGo(0); };
+
 // 테스트용으로 몇 가지를 밖에서 볼 수 있게
-window.__cube = { readColors, setColors, doMove, checkColors, solveColors, get busy() { return busy; }, get solverReady() { return solverReady; }, SOLVED };
+window.__cube = { readColors, setColors, doMove, checkColors, solveColors, get busy() { return busy; }, get solverReady() { return solverReady; }, SOLVED, lessonTarget: () => maskOf(LESSON[lessonStep].base, LESSON[lessonStep].keep) };
 </script>
 </body>
 </html>
